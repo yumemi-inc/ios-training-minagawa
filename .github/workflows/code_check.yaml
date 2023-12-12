@@ -1,0 +1,56 @@
+name: Code Check
+on:
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        uses: actions/checkout@v4
+      -
+        name: Run SwiftLint
+        uses: norio-nomura/action-swiftlint@3.2.1
+        with:
+          args: --strict
+  format:
+    runs-on: ubuntu-latest
+    steps:
+      -
+        name: Setup Swift
+        uses: swift-actions/setup-swift@v1
+        with:
+          swift-version: 5.9
+      -
+        name: Clone swift-format
+        uses: actions/checkout@v4
+        with:
+          repository: apple/swift-format
+          ref: swift-5.9.1-RELEASE
+          path: swift-format
+      -
+        name: Restore swift-format build artifact from cache
+        id: cache-swift-format
+        uses: actions/cache@v3
+        with:
+          path: ./swift-format/.build
+          key: ${{ runner.os }}-${{ hashFiles('./swift-format/Package.swift') }}
+      -
+        name: Build swift-format
+        if: steps.cache-swift-format.outputs.cache-hit != 'true'
+        run: swift build -c release
+        working-directory: swift-format
+      -
+        name: Add swift-format in PATH
+        run: echo $(swift build -c release --show-bin-path) >> $GITHUB_PATH
+        working-directory: swift-format
+      -
+        uses: actions/checkout@v4
+        with:
+          path: main
+      -
+        name: Run swift-format
+        run: swift-format lint -s -r .
+        working-directory: main
